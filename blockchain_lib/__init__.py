@@ -1,4 +1,4 @@
-"""Shared blockchain teaching primitives, extracted from notebooks 1-3.
+"""Shared blockchain teaching primitives backing the course notebooks.
 
 Each submodule is the canonical implementation backing one notebook's
 narrative; the notebooks explain *why*, this package is just the *what*:
