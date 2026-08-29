@@ -1,6 +1,7 @@
 """Shared stablecoin teaching primitives for notebooks 7 and 8."""
 
 import json
+import math
 
 from blockchain_lib.pos import Block, Validator
 from blockchain_lib.pos import Blockchain as PoSBlockchain
@@ -34,7 +35,7 @@ class TokenLedger:
 
     @staticmethod
     def _require_positive(amount: float) -> None:
-        if amount <= 0:
+        if not math.isfinite(amount) or amount <= 0:
             raise ValueError("Amount must be positive.")
 
     def _record(self, record: dict[str, str | float]) -> None:
