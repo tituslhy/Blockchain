@@ -98,3 +98,51 @@ class TokenLedger:
     def refund_to(self, sender: str, amount: float) -> None:
         self._require_positive(amount)
         self.balances[sender] = self.balances.get(sender, 0) + amount
+
+
+class FiatBackedIssuer:
+    """Model a fictional issuer's off-chain USD reserve for teaching purposes.
+
+    The reserve is not a real bank balance and is intentionally kept off-chain.
+    """
+
+    def __init__(self, name: str, ledger: TokenLedger) -> None:
+        self.name = name
+        self.ledger = ledger
+        self.reserve_usd: float = 0.0
+
+    def deposit_and_mint(self, to: str, usd_amount: float) -> None:
+        """Record fictional USD reserves and mint the matching token amount."""
+        TokenLedger._require_positive(usd_amount)
+        self.reserve_usd += usd_amount
+        self.ledger.mint(to, usd_amount)
+
+    def redeem(self, holder: str, token_amount: float) -> bool:
+        """Burn tokens and release the corresponding fictional reserve amount."""
+        TokenLedger._require_positive(token_amount)
+        if self.reserve_usd < token_amount:
+            return False
+        if not self.ledger.burn(holder, token_amount):
+            return False
+        self.reserve_usd -= token_amount
+        return True
+
+    def record_reserve_loss(self, usd_amount: float) -> bool:
+        """Record an off-chain loss against this fictional issuer's reserves."""
+        TokenLedger._require_positive(usd_amount)
+        if self.reserve_usd < usd_amount:
+            return False
+        self.reserve_usd -= usd_amount
+        return True
+
+    @property
+    def reserve_ratio(self) -> float:
+        """Return the fictional reserve amount divided by issued token supply."""
+        if self.ledger.total_supply == 0:
+            return 1.0
+        return self.reserve_usd / self.ledger.total_supply
+
+    @property
+    def backing_per_token(self) -> float:
+        """Return simplified fictional backing per token, not a market-price oracle."""
+        return min(1.0, self.reserve_ratio)
