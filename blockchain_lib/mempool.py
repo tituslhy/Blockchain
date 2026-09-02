@@ -1,20 +1,16 @@
-"""Shared mempool primitives backing notebook 5 and reused by notebook 6.
+"""Shared mempool primitives taught in notebook 5 and imported after that.
 
-Canonical implementation of the local-inbox model taught in
-``5. mempools.ipynb``. Notebook 5 defines the same classes inline so the
-lesson can be read without jumping to this file; later notebooks import
-from here instead of inventing a second waiting room.
-
-See notebook 5 for the full narrative (gossip, delay-caused forks,
-attestations). This module is the code without the lesson. Notebook 6
-subclasses ``Network`` so a proposer can include only a transaction it
-has actually received.
+Notebook 5 defines ``Transaction`` and ``Network`` inline so the lesson
+can be read in one place. Later notebooks import this copy and use the
+same two calls: ``broadcast`` then ``include``.
 """
 
 from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+
+from blockchain_lib.pos import Block, Blockchain
 
 
 @dataclass(frozen=True)
@@ -115,3 +111,37 @@ class Network:
         """
         for mempool in self.mempools.values():
             mempool.pop(tx_id, None)
+
+    def include(
+        self, proposer: str, tx_id: str, chain: Blockchain
+    ) -> tuple[Transaction, Block]:
+        """Include ``tx_id`` from ``proposer``'s mempool and append a block.
+
+        A proposer may include only a transaction sitting in *their*
+        mempool. After inclusion the transaction is dropped from every
+        local inbox: it is no longer waiting; it is history (or a
+        receipt of an attempt).
+
+        Args:
+            proposer: Node that believes it can propose this transaction.
+            tx_id: Identifier of the transaction to include.
+            chain: The PoS chain that will record the inclusion.
+
+        Returns:
+            The included ``Transaction`` and the new ``Block``.
+
+        Raises:
+            ValueError: If ``proposer`` is unknown, or ``tx_id`` is not
+                in that proposer's local mempool, or the candidate does
+                not build on the current tip.
+        """
+        transaction = self.get(proposer, tx_id)
+        if transaction is None:
+            raise ValueError(
+                f"{proposer} cannot include {tx_id}: "
+                "it is not in their local mempool."
+            )
+        block = chain.propose_candidate(transaction.description, proposer)
+        chain.accept_candidate(block)
+        self.drop(tx_id)
+        return transaction, block

@@ -3,6 +3,7 @@
 import json
 import math
 
+from blockchain_lib.mempool import Network, Transaction
 from blockchain_lib.pos import Block, Validator
 from blockchain_lib.pos import Blockchain as PoSBlockchain
 
@@ -23,13 +24,22 @@ class Blockchain(PoSBlockchain):
         proposer.stake += BLOCK_REWARD + FEE_PER_TX
         return block, proposer
 
+    def accept_candidate(self, block: Block) -> None:
+        """Append a mempool-included candidate and pay its named proposer."""
+        super().accept_candidate(block)
+        proposer = next(v for v in self.validators if v.name == block.proposer)
+        proposer.stake += BLOCK_REWARD + FEE_PER_TX
+
 
 class TokenLedger:
     """Minimal on-chain token ledger for stablecoin and HTLC lessons."""
 
-    def __init__(self, symbol: str, blockchain: Blockchain) -> None:
+    def __init__(
+        self, symbol: str, blockchain: Blockchain, network: Network
+    ) -> None:
         self.symbol = symbol
         self.blockchain = blockchain
+        self.network = network
         self.balances: dict[str, float] = {}
         self.total_supply: float = 0.0
 
@@ -38,8 +48,23 @@ class TokenLedger:
         if not math.isfinite(amount) or amount <= 0:
             raise ValueError("Amount must be positive.")
 
+    def record_payload(self, payload: str, tx_id: str | None = None) -> None:
+        """Gossip ``payload`` as a ``Transaction`` and include it from the origin."""
+        tx = Transaction(
+            tx_id or f"{self.symbol}-{len(self.blockchain.chain)}",
+            payload,
+        )
+        origin = self.network.node_names[0]
+        self.network.broadcast(tx, origin)
+        self.network.include(origin, tx.tx_id, self.blockchain)
+
     def _record(self, record: dict[str, str | float]) -> None:
-        self.blockchain.add_block(json.dumps(record, sort_keys=True))
+        """Gossip a token event as a ``Transaction``, then include it."""
+        event = str(record.get("event", "EVENT"))
+        self.record_payload(
+            json.dumps(record, sort_keys=True),
+            tx_id=f"{self.symbol}-{event}-{len(self.blockchain.chain)}",
+        )
 
     def mint(self, to: str, amount: float) -> None:
         self._require_positive(amount)
