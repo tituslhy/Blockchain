@@ -1,4 +1,0 @@
-{
-  "name": "blockchain",
-  "install": "bash .cursor/install.sh"
-}
