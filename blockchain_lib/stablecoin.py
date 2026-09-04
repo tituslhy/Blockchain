@@ -1,4 +1,4 @@
-"""Shared stablecoin teaching primitives for notebooks 7 and 8."""
+"""Shared stablecoin teaching primitives for notebooks 8 and 9."""
 
 import json
 import math

@@ -1,7 +1,7 @@
 """Shared mempool primitives taught in notebook 5 and imported after that.
 
 Notebook 5 defines ``Transaction`` and ``Network`` inline so the lesson
-can be read in one place. Later notebooks import this copy and use the
+can be read in one place. Notebooks 6–9 import this copy and use the
 same two calls: ``broadcast`` then ``include``.
 """
 

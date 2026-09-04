@@ -1,7 +1,7 @@
 """Proof-of-Stake primitives: validators, blocks, and the chain they build.
 
 Canonical implementation backing notebook 2 (`2. blockchain_pos.ipynb`,
-Part 1) and reused by notebooks 5 and 6. See notebook 2 for the full
+Part 1) and reused by notebooks 5–9. See notebook 2 for the full
 narrative walkthrough (validator setup, honest rounds, equivocation,
 slashing, historical eligibility) -- this module is the code without
 the lesson. Notebook 2's Part 2 (rewards, compounding stake) extends
