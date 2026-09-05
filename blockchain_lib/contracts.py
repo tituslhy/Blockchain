@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass
+from typing import Any, Protocol
+
+from blockchain_lib.mempool import Network, Transaction
+from blockchain_lib.pos import Block, Blockchain
 
 
 class SmartContract:
@@ -21,6 +25,14 @@ class SmartContract:
     """
 
     def __init__(self, address: str) -> None:
+        """Store the address this contract will be called at.
+
+        Args:
+            address: Non-empty on-chain name, e.g. ``amm.eth``.
+
+        Raises:
+            ValueError: If ``address`` is empty.
+        """
         if not address:
             raise ValueError("Contract address must be non-empty.")
         self.address = address
@@ -40,12 +52,10 @@ class SmartContract:
             AttributeError: If ``method`` is private or missing.
         """
         if method.startswith("_") or method == "call":
-            raise AttributeError(
-                f"{self.address} has no public method {method!r}."
-            )
+            raise AttributeError(f"{self.address} has no public method {method!r}.")
         func = getattr(self, method, None)
         if not callable(func):
-            raise AttributeError(
+            raise AttributeError(  # noqa: TRY004
                 f"{self.address} has no public method {method!r}."
             )
         return func(**kwargs)
@@ -67,28 +77,168 @@ class PriceReport:
 def collateral_ratio(
     collateral_eth: float, debt_usd: float, eth_price_usd: float
 ) -> float:
-    """Return collateral value divided by debt, at a given ETH price."""
+    """Return collateral value divided by debt, at a given ETH price.
+
+    Args:
+        collateral_eth: ETH locked as collateral. Must be positive.
+        debt_usd: Outstanding debt in USD. Must be positive.
+        eth_price_usd: ETH/USD price the caller is treating as fact.
+
+    Returns:
+        Collateral value divided by debt.
+
+    Raises:
+        ValueError: If any input is not positive.
+    """
     if collateral_eth <= 0 or debt_usd <= 0 or eth_price_usd <= 0:
         raise ValueError("Collateral, debt, and price must be positive.")
     return collateral_eth * eth_price_usd / debt_usd
 
 
 def should_liquidate(ratio: float, threshold: float = 1.5) -> bool:
-    """Return whether a collateral ratio is below the liquidation threshold."""
+    """Return whether a collateral ratio is below the liquidation threshold.
+
+    Args:
+        ratio: Collateral value divided by debt.
+        threshold: Minimum healthy ratio. Defaults to 1.5.
+
+    Returns:
+        True if ``ratio`` is strictly below ``threshold``.
+    """
     return ratio < threshold
+
+
+class PriceSource(Protocol):
+    """Anything a lending rule can ask for a price.
+
+    ``MedianOracle`` and ``PriceFeed`` both satisfy this. So does any
+    object with a ``price`` property — including a thin AMM used as a
+    bad oracle.
+    """
+
+    @property
+    def price(self) -> float:
+        """Return the price this source currently treats as fact."""
+        ...
+
+
+def submit_call(
+    network: Network,
+    chain: Blockchain,
+    origin: str,
+    tx_id: str,
+    contract: SmartContract,
+    method: str,
+    **kwargs: Any,
+) -> tuple[Any, Transaction, Block]:
+    """Gossip a contract call, include it as a ``Block``, then run it.
+
+    Inclusion is the notary stamp. ``call`` is the form being filled in.
+    A proposer who never heard the gossip cannot stamp it — notebook 5
+    still applies.
+
+    Args:
+        network: Gossip network whose local mempools will see the call.
+        chain: Chain that will record the inclusion.
+        origin: Node that first broadcasts the transaction.
+        tx_id: Unique identifier for this call.
+        contract: Contract to invoke after inclusion.
+        method: Public method name on ``contract``.
+        **kwargs: Arguments forwarded to that method.
+
+    Returns:
+        ``(result, transaction, block)`` — whatever the method returned,
+        the gossiped transaction, and the block that included it.
+    """
+    arg_preview = ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
+    description = f"{contract.address}.{method}({arg_preview})"
+    network.broadcast(Transaction(tx_id, description), origin=origin)
+    tx, block = network.include(origin, tx_id, chain)
+    result = contract.call(method, **kwargs)
+    return result, tx, block
 
 
 class MedianOracle:
     """A price source that reports the median of several independent reports."""
 
     def __init__(self, reports: list[PriceReport]) -> None:
+        """Store the reports this oracle will median.
+
+        Args:
+            reports: Non-empty list of named price reports.
+
+        Raises:
+            ValueError: If ``reports`` is empty.
+        """
         if not reports:
             raise ValueError("At least one price report is required.")
         self.reports = reports
 
     @property
     def price(self) -> float:
-        """Median reported price — resists a single outlier report."""
+        """Return the median reported price.
+
+        Returns:
+            Median of ``eth_price_usd`` across ``self.reports``.
+        """
+        return statistics.median(report.eth_price_usd for report in self.reports)
+
+
+class PriceFeed(SmartContract):
+    """A contract that stores price reports as they arrive.
+
+    Each ``report`` call is meant to be stamped into its own Block.
+    ``latest`` is whatever the last stamp said. A ``MedianOracle`` over
+    ``reports`` is a different choice.
+    """
+
+    def __init__(self, address: str) -> None:
+        """Create an empty feed at ``address``.
+
+        Args:
+            address: On-chain address of this feed.
+        """
+        super().__init__(address)
+        self.reports: list[PriceReport] = []
+
+    def report(self, source: str, eth_price_usd: float) -> PriceReport:
+        """Append one report and return it.
+
+        Args:
+            source: Label for who sent this number. Not a signature.
+            eth_price_usd: Reported ETH/USD price. Must be positive.
+
+        Returns:
+            The stored ``PriceReport``.
+
+        Raises:
+            ValueError: If ``eth_price_usd`` is not positive.
+        """
+        if eth_price_usd <= 0:
+            raise ValueError("Reported price must be positive.")
+        posted = PriceReport(source, eth_price_usd)
+        self.reports.append(posted)
+        return posted
+
+    @property
+    def latest(self) -> PriceReport:
+        """Return the most recently stamped report.
+
+        Returns:
+            The last item in ``self.reports``.
+
+        Raises:
+            IndexError: If no report has been posted yet.
+        """
+        return self.reports[-1]
+
+    @property
+    def price(self) -> float:
+        """Return the median of every report stored so far.
+
+        Returns:
+            Median ETH/USD price across ``self.reports``.
+        """
         return statistics.median(report.eth_price_usd for report in self.reports)
 
 
@@ -101,9 +251,17 @@ class AMMPool(SmartContract):
     piles of tokens.
     """
 
-    def __init__(
-        self, address: str, eth_reserve: float, usd_reserve: float
-    ) -> None:
+    def __init__(self, address: str, eth_reserve: float, usd_reserve: float) -> None:
+        """Create a pool at ``address`` with the given reserves.
+
+        Args:
+            address: On-chain address of this pool.
+            eth_reserve: ETH held by the pool. Must be positive.
+            usd_reserve: USD held by the pool. Must be positive.
+
+        Raises:
+            ValueError: If either reserve is not positive.
+        """
         super().__init__(address)
         if eth_reserve <= 0 or usd_reserve <= 0:
             raise ValueError("AMM reserves must be positive.")
@@ -176,6 +334,11 @@ class Loan:
     debt_usd: float
 
     def __post_init__(self) -> None:
+        """Reject non-positive collateral or debt.
+
+        Raises:
+            ValueError: If either field is not positive.
+        """
         if self.collateral_eth <= 0 or self.debt_usd <= 0:
             raise ValueError("Loan collateral and debt must be positive.")
 
@@ -201,7 +364,7 @@ class LendingProtocol(SmartContract):
         address: str,
         pool: AMMPool,
         liquidation_ratio: float = 1.5,
-        price_source=None,
+        price_source: PriceSource | None = None,
     ) -> None:
         """Configure the protocol's price source and liquidation threshold.
 
@@ -224,10 +387,17 @@ class LendingProtocol(SmartContract):
         self.price_source = price_source
         self.loans: dict[str, Loan] = {}
 
-    def open_loan(
-        self, borrower: str, collateral_eth: float, debt_usd: float
-    ) -> Loan:
-        """Open a loan for ``borrower`` and return it."""
+    def open_loan(self, borrower: str, collateral_eth: float, debt_usd: float) -> Loan:
+        """Open a loan for ``borrower`` and return it.
+
+        Args:
+            borrower: Non-empty borrower identifier.
+            collateral_eth: ETH locked as collateral. Must be positive.
+            debt_usd: Outstanding debt in USD. Must be positive.
+
+        Returns:
+            The registered ``Loan``.
+        """
         return self.add_loan(borrower, Loan(collateral_eth, debt_usd))
 
     def add_loan(self, borrower: str, loan: Loan) -> Loan:
@@ -249,7 +419,18 @@ class LendingProtocol(SmartContract):
         return loan
 
     def collateral_ratio(self, loan: Loan) -> float:
-        """Return collateral value divided by debt, using the configured price source."""
+        """Return collateral value divided by debt.
+
+        Reads ``price_source.price`` when one was supplied, otherwise
+        ``pool.spot_price``. That read is a contract-to-contract call
+        when the source is another contract.
+
+        Args:
+            loan: Position to value.
+
+        Returns:
+            Collateral value divided by debt at the configured price.
+        """
         price = (
             self.price_source.price
             if self.price_source is not None

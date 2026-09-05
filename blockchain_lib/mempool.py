@@ -97,6 +97,10 @@ class Network:
             node_name: The node whose local mempool to read.
             tx_id: Transaction identifier to look up.
 
+        Returns:
+            The node's copy of the transaction, or ``None`` if it has
+            not heard ``tx_id`` yet.
+
         Raises:
             ValueError: If ``node_name`` is not a known node.
         """
@@ -138,8 +142,7 @@ class Network:
         transaction = self.get(proposer, tx_id)
         if transaction is None:
             raise ValueError(
-                f"{proposer} cannot include {tx_id}: "
-                "it is not in their local mempool."
+                f"{proposer} cannot include {tx_id}: it is not in their local mempool."
             )
         block = chain.propose_candidate(transaction.description, proposer)
         chain.accept_candidate(block)

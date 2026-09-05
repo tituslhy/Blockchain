@@ -13,7 +13,14 @@ import hashlib
 
 
 def sha256(data: str) -> str:
-    """Deterministic hash helper used throughout."""
+    """Return the SHA-256 hex digest of ``data``.
+
+    Args:
+        data: UTF-8 text to hash.
+
+    Returns:
+        Hex digest used for Merkle leaves and HTLC hash locks.
+    """
     return hashlib.sha256(data.encode()).hexdigest()
 
 
@@ -53,6 +60,14 @@ class MerkleTree:
     """
 
     def __init__(self, documents: list[str]) -> None:
+        """Hash each document and build the tree.
+
+        Args:
+            documents: Non-empty ordered batch to commit to.
+
+        Raises:
+            ValueError: If ``documents`` is empty.
+        """
         if not documents:
             raise ValueError("Need at least one document to build a tree.")
         self.leaves: list[str] = [sha256(doc) for doc in documents]
@@ -113,9 +128,10 @@ class MerkleTree:
 
 
 def verify_proof(leaf_hash: str, proof: list[tuple[str, str]], root: str) -> bool:
-    """Independently recompute the root from a leaf hash + its proof, and
-    check it matches the published root -- without ever seeing any other
-    document in the batch.
+    """Recompute a Merkle root from one leaf hash and its sibling path.
+
+    The verifier never needs any other document in the batch — only the
+    leaf, the proof, and the published root.
 
     Args:
         leaf_hash: Hash of the document being proven.

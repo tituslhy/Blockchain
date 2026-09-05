@@ -21,6 +21,13 @@ onwards the same two imports appear at the top:
 Notebook 7 then adds:
 
     from blockchain_lib.contracts import (
-        AMMPool, LendingProtocol, Loan, MedianOracle, PriceReport,
+        AMMPool, LendingProtocol, Loan, MedianOracle, PriceFeed, PriceReport,
+        submit_call,
     )
+    from blockchain_lib.flash_loan import FlashLoanProvider, run_flash_attack
+
+Notebooks 8 and 9 continue the same objects:
+
+    from blockchain_lib.stablecoin import Blockchain, FiatBackedIssuer, TokenLedger
+    from blockchain_lib.htlc import HTLCManager
 """

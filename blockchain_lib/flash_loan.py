@@ -1,12 +1,14 @@
 """Flash-loan primitives taught in notebook 7.
 
-Notebook 7 defines these classes inline so the lesson can be read in one
-place. This module is the copy later notebooks can import. It depends on
-the swap and lending contracts from ``blockchain_lib.contracts``.
+Notebook 7 imports this module after explaining the heist in prose.
+The snapshot/rollback loop lives here so the notebook does not carry a
+second copy of the same classes. It depends on the swap and lending
+contracts from ``blockchain_lib.contracts``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from blockchain_lib.contracts import AMMPool, LendingProtocol, Loan
@@ -83,7 +85,13 @@ class FlashLoanProvider:
             raise ValueError("Flash-loan liquidity must be positive.")
         self.eth_available = eth_available
 
-    def execute(self, amount_eth, action, pool, protocol):
+    def execute(
+        self,
+        amount_eth: float,
+        action: Callable[[float], tuple[float, AttackTrace]],
+        pool: AMMPool,
+        protocol: LendingProtocol,
+    ) -> tuple[float, AttackTrace]:
         """Lend ``amount_eth``, run ``action``, then commit or roll back.
 
         Args:
@@ -173,18 +181,14 @@ def run_flash_attack(
     )
     usd_for_buyback = usd_from_dump - debt_paid_usd
     if usd_for_buyback <= 0:
-        raise InsufficientRepaymentError(
-            "Liquidation leaves no USD for the buyback."
-        )
+        raise InsufficientRepaymentError("Liquidation leaves no USD for the buyback.")
     eth_bought_back = pool.swap_usd_for_eth(usd_for_buyback)
     eth_before_repayment = eth_bought_back + collateral_seized
     print(
         f"STEP 4 — BUY BACK: remaining ${usd_for_buyback:,.2f} buys back "
         f"{eth_bought_back:.2f} ETH; attacker holds {eth_before_repayment:.2f} ETH."
     )
-    print(
-        f"STEP 5 — REPAY: return {amount_eth:.2f} ETH principal to the provider."
-    )
+    print(f"STEP 5 — REPAY: return {amount_eth:.2f} ETH principal to the provider.")
     trace = AttackTrace(
         borrowed_eth=amount_eth,
         usd_from_dump=usd_from_dump,
@@ -201,7 +205,15 @@ def run_flash_attack(
 
 @dataclass(frozen=True)
 class TransactionReceipt:
-    """Inclusion records the attempt; status says whether state changes survived."""
+    """Inclusion records the attempt; status says whether state changes survived.
+
+    Attributes:
+        transaction: The gossiped payload that was included.
+        block: Block that recorded the attempt.
+        status: ``SUCCESS`` or ``REVERTED``.
+        gas_used: Teaching stand-in for gas, not a real EVM meter.
+        state_effect: Human-readable note about whether world state changed.
+    """
 
     transaction: Transaction
     block: Block

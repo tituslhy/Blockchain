@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "ipykernel>=7.3.0",
+    "mypy>=1.18.0",
     "pydantic>=2.13.4",
     "ruff>=0.16.4",
 ]
@@ -16,3 +17,22 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["blockchain_lib"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "D"]
+ignore = ["E501", "D203", "D213"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "."
+packages = ["blockchain_lib"]
+warn_return_any = true
+warn_unused_ignores = true
+explicit_package_bases = true

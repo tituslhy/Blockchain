@@ -30,6 +30,12 @@ class Validator:
     """
 
     def __init__(self, name: str, stake: float) -> None:
+        """Record identity and locked stake.
+
+        Args:
+            name: Human-readable identity for demos / logs.
+            stake: Locked currency; determines lottery weight.
+        """
         self.name = name
         self.stake = stake
         self.slashed_at_height: int | None = None
@@ -50,6 +56,7 @@ class Validator:
         return height < self.slashed_at_height
 
     def __repr__(self) -> str:
+        """Return a one-line summary of name, stake, and slash status."""
         status = (
             f"SLASHED at height {self.slashed_at_height}"
             if self.is_slashed
@@ -70,7 +77,17 @@ class Block:
         hash: SHA-256 digest of this block's contents, computed at creation.
     """
 
-    def __init__(self, index: int, data: str, previous_hash: str, proposer: str) -> None:
+    def __init__(
+        self, index: int, data: str, previous_hash: str, proposer: str
+    ) -> None:
+        """Build a block and hash it immediately.
+
+        Args:
+            index: Position in the chain (0 = genesis).
+            data: Payload -- a string here; a tx batch in a real chain.
+            previous_hash: Hash of the previous block.
+            proposer: Name of the validator who proposed this block.
+        """
         self.index = index
         self.timestamp = time.time()
         self.data = data
@@ -97,6 +114,7 @@ class Block:
         return hashlib.sha256(block_contents.encode()).hexdigest()
 
     def __repr__(self) -> str:
+        """Return a printable summary of this block's link and payload."""
         return (
             f"Block #{self.index} proposed by {self.proposer}\n"
             f"  data:          {self.data}\n"
@@ -164,6 +182,12 @@ class Blockchain:
     """
 
     def __init__(self, validators: list[Validator]) -> None:
+        """Start the chain with a genesis block and the given validator set.
+
+        Args:
+            validators: Stake-weighted proposer set. Genesis is proposed by
+                the sentinel label ``network``.
+        """
         self.validators = validators
         # Genesis has no real proposer; "network" is a sentinel label.
         self.chain: list[Block] = [Block(0, "Genesis Block", "0" * 64, "network")]
@@ -320,7 +344,9 @@ class Blockchain:
                 conflicting blocks from different proposers are an
                 ordinary fork, not one identity double-signing.
         """
-        mismatched = {b.proposer for b in candidate_blocks if b.proposer != proposer_name}
+        mismatched = {
+            b.proposer for b in candidate_blocks if b.proposer != proposer_name
+        }
         if mismatched:
             raise ValueError(
                 "detect_equivocation compares one proposer's own candidates; "

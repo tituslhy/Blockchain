@@ -56,6 +56,9 @@ class Block:
         Same inputs always produce the same hash. Changing data,
         previous_hash, or nonce changes the hash -- which is why
         tampering forces re-mining.
+
+        Returns:
+            Hex digest of the current block fields.
         """
         block_contents = json.dumps(
             {
@@ -75,6 +78,9 @@ class Block:
         Target example: difficulty=5 means the hash must start with
         "00000". Higher difficulty -> exponentially more attempts on
         average.
+
+        Returns:
+            The hash that met the difficulty target.
         """
         target = "0" * self.difficulty
         start = time.time()
@@ -94,6 +100,7 @@ class Block:
         return candidate_hash
 
     def __repr__(self) -> str:
+        """Return a printable summary of this mined block."""
         return (
             f"Block #{self.index}\n"
             f"  data:          {self.data}\n"
@@ -126,6 +133,9 @@ class Blockchain:
 
         Creating Block(...) runs mine() inside __init__, so this call
         blocks until a valid nonce is found for the given difficulty.
+
+        Args:
+            data: Payload stored in the new block.
         """
         previous_block = self.chain[-1]
         new_block = Block(len(self.chain), data, previous_block.hash, self.difficulty)
