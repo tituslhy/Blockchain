@@ -1,6 +1,7 @@
 """HTLC escrow primitives taught in notebook 9.
 
-Notebook 9 imports ``HTLCManager`` from this module. The hash helper is
+Notebook 9 defines ``HTLCManager`` inline; this module keeps the reusable
+copy. The hash helper is
 ``blockchain_lib.merkle.sha256`` — same digest as notebook 3.
 """
 
