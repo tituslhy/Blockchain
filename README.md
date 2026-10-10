@@ -20,6 +20,7 @@ Notebook 4 (permissioned chains) stays self-contained and does not land a module
 7. [Flash loans](<notebooks/7. flash_loans.ipynb>) — same contracts, first shoved with owned ETH, then a flash loan: atomic exploits, rollback, and included ≠ succeeded.
 8. [Stablecoins](<notebooks/8. stablecoins.ipynb>) — fictional USD reserves, TitusCoin issuance, transfers, redemption, and depeg pressure.
 9. [Cross-chain atomic settlement](<notebooks/9. cross_chain_atomic_settlement.ipynb>) — HTLC locks, secret revelation, asymmetric timelocks, and refunds across independent chains.
+10. [NFTs](<notebooks/10. nfts.ipynb>) — individual token ownership, copyable files, royalty quotations and bypasses, provenance, and the perfectly valid pointer to a missing artifact.
 
 ## Where each library module is first instantiated
 
@@ -33,3 +34,4 @@ Notebook 4 (permissioned chains) stays self-contained and does not land a module
 | [`flash_loan.py`](blockchain_lib/flash_loan.py) | [7. Flash loans](<notebooks/7. flash_loans.ipynb>) |
 | [`stablecoin.py`](blockchain_lib/stablecoin.py) | [8. Stablecoins](<notebooks/8. stablecoins.ipynb>) |
 | [`htlc.py`](blockchain_lib/htlc.py) | [9. Cross-chain atomic settlement](<notebooks/9. cross_chain_atomic_settlement.ipynb>) |
+| [`nft.py`](blockchain_lib/nft.py) | [10. NFTs](<notebooks/10. nfts.ipynb>) |

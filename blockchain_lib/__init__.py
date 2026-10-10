@@ -11,6 +11,7 @@ narrative; the notebooks explain *why*, this package is just the *what*:
 - ``blockchain_lib.flash_loan`` -- notebook 7 (atomic flash-loan execution)
 - ``blockchain_lib.stablecoin`` -- notebooks 8 and 9 (fiat-backed tokens)
 - ``blockchain_lib.htlc``       -- notebook 9 (hash-locked cross-chain escrow)
+- ``blockchain_lib.nft``        -- notebook 10 (NFT ownership + royalty quotations)
 
 Notebook 5 defines ``Transaction`` and ``Network`` inline. From notebook 6
 onwards the same two imports appear at the top:
@@ -30,4 +31,7 @@ Notebooks 8 and 9 continue the same objects:
 
     from blockchain_lib.stablecoin import Blockchain, FiatBackedIssuer, TokenLedger
     from blockchain_lib.htlc import HTLCManager
+
+Notebook 10 defines ``TokenMetadata`` and ``NFTCollection`` inline before
+using them. Their reusable copies live in ``blockchain_lib.nft``.
 """
