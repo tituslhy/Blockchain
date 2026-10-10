@@ -41,7 +41,7 @@ class NFTCollection(SmartContract):
     """Track each token separately, with a creator and royalty quotation.
 
     Caller names stand in for authenticated wallet addresses. Ownership
-    lives in Python memory; blocks record calls, as in notebook 6.
+    lives in Python memory; blocks record requested calls.
     """
 
     def __init__(self, address: str, creator: str, royalty_bps: int = 500) -> None:
